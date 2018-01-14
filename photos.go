@@ -7,6 +7,14 @@ import (
 	"log"
 	"io"
 	"github.com/satori/go.uuid"
+	"time"
+	url2 "net/url"
+	"encoding/base64"
+	"io/ioutil"
+	"errors"
+	"strings"
+	"bytes"
+	"os"
 )
 
 type Album struct {
@@ -32,9 +40,23 @@ type PhotoService struct {
 	client *minio.Client
 	bucketName string
 	store PhotoStore
+	logger *log.Logger
+}
+
+func (service *PhotoService) Log(format string, rest ...interface{}) {
+	service.logger.Printf(format+"\n", rest...)
 }
 
 func (service PhotoService) SavePhoto(image io.Reader, album *Album) (photo *Photo, err error) {
+	bimg, err := ioutil.ReadAll(image)
+	if err != nil {
+		return nil, errors.New("couldn't read image")
+	}
+	i := strings.Index(string(bimg), ",")
+	if i == -1 {
+		return nil, errors.New("unrecognized image format")
+	}
+	decoder := base64.NewDecoder(base64.StdEncoding, bytes.NewBuffer(bimg[i+1:]))
 	shaStr, err := uuid.NewV4()
 
 	if err != nil {
@@ -42,9 +64,10 @@ func (service PhotoService) SavePhoto(image io.Reader, album *Album) (photo *Pho
 	}
 
 	log.Println(shaStr)
-	_, err = service.client.PutObject(service.bucketName, shaStr.String()+".png", image, -1, minio.PutObjectOptions{})
+	_, err = service.client.PutObject(service.bucketName, album.Name+"/"+shaStr.String()+".png", decoder, -1, minio.PutObjectOptions{})
 
 	if err != nil {
+		service.Log("Unable to upload image: %v", err)
 		return
 	}
 
@@ -57,11 +80,22 @@ func (service PhotoService) SavePhoto(image io.Reader, album *Album) (photo *Pho
 }
 
 func (service PhotoService) GetPhoto(album *Album, name string) (reader io.Reader, err error) {
-	object, err := service.client.GetObject(service.bucketName, name, minio.GetObjectOptions{})
+	object, err := service.client.GetObject(service.bucketName, album.Name+"/"+name, minio.GetObjectOptions{})
 	if err != nil {
 		return
 	}
 	reader = object
+	return
+}
+
+func (service PhotoService) GetSignedUrlOfImage(album *Album, name string) (url string, err error) {
+	reqParams := make(url2.Values)
+	//reqParams.Set("response-content-disposition", "attachment; filename=\""+name+"\"")
+	object, err := service.client.PresignedGetObject(service.bucketName, album.Name+"/"+name, time.Second * 60 * 5, reqParams)
+	if err != nil {
+		return
+	}
+	url = object.String()
 	return
 }
 
@@ -79,9 +113,11 @@ func (service PhotoService) CreateAlbum(name string) (err error) {
 	return service.store.Save(&album)
 }
 
-func NewPhotoService(url string, accessKey string, secretKey string, store *PhotoStore) (PhotoService, error) {
+func NewPhotoService(url string, accessKey string, secretKey string, store PhotoStore, bucketName string) (PhotoService, error) {
 	service := PhotoService{}
-	service.store = *store
+	service.store = store
+	service.bucketName = bucketName
+	service.logger = log.New(os.Stdout, "Photos Service", log.Llongfile)
 	var err error
 	service.client, err = minio.New(url, accessKey, secretKey, true)
 	return service, err
