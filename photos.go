@@ -2,31 +2,30 @@
 package photos
 
 import (
-	"github.com/princedhaliwal/quadb/src/models"
-	"github.com/minio/minio-go"
-	"log"
-	"io"
-	"github.com/satori/go.uuid"
-	"time"
-	url2 "net/url"
-	"encoding/base64"
-	"io/ioutil"
-	"errors"
-	"strings"
 	"bytes"
+	"encoding/base64"
+	"errors"
+	"github.com/minio/minio-go"
+	"github.com/satori/go.uuid"
+	"io"
+	"io/ioutil"
+	"log"
+	url2 "net/url"
 	"os"
+	"strings"
+	"time"
 )
 
 type Album struct {
-	models.Model
-	Name string `json:"name,omitempty"`
+	ID     uint    `json:"id"`
+	Name   string  `json:"name,omitempty"`
 	Photos []Photo `json:"photos"`
 }
 
 type Photo struct {
-	models.Model
-	Hash string `json:"hash"`
-	AlbumId uint `json:"album_id"`
+	ID      uint   `json:"id"`
+	Hash    string `json:"hash"`
+	AlbumId uint   `json:"album_id"`
 }
 
 type PhotoStore interface {
@@ -37,10 +36,10 @@ type PhotoStore interface {
 }
 
 type PhotoService struct {
-	client *minio.Client
+	client     *minio.Client
 	bucketName string
-	store PhotoStore
-	logger *log.Logger
+	store      PhotoStore
+	logger     *log.Logger
 }
 
 func (service *PhotoService) Log(format string, rest ...interface{}) {
@@ -72,7 +71,7 @@ func (service PhotoService) SavePhoto(image io.Reader, album *Album) (photo *Pho
 	}
 
 	photo = &Photo{
-		Hash: shaStr.String()+".png",
+		Hash: shaStr.String() + ".png",
 	}
 
 	err = service.store.Save(photo)
@@ -91,7 +90,7 @@ func (service PhotoService) GetPhoto(album *Album, name string) (reader io.Reade
 func (service PhotoService) GetSignedUrlOfImage(album *Album, name string) (url string, err error) {
 	reqParams := make(url2.Values)
 	//reqParams.Set("response-content-disposition", "attachment; filename=\""+name+"\"")
-	object, err := service.client.PresignedGetObject(service.bucketName, album.Name+"/"+name, time.Second * 60 * 5, reqParams)
+	object, err := service.client.PresignedGetObject(service.bucketName, album.Name+"/"+name, time.Second*60*5, reqParams)
 	if err != nil {
 		return
 	}
@@ -109,7 +108,7 @@ func (service PhotoService) GetPhotosOfAlbum(album *Album) (photos []Photo, err 
 }
 
 func (service PhotoService) CreateAlbum(name string) (err error) {
-	album := Album{ Name: name }
+	album := Album{Name: name}
 	return service.store.Save(&album)
 }
 
