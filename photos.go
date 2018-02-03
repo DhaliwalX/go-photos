@@ -118,6 +118,6 @@ func NewPhotoService(url string, accessKey string, secretKey string, store Photo
 	service.bucketName = bucketName
 	service.logger = log.New(os.Stdout, "Photos Service", log.Llongfile)
 	var err error
-	service.client, err = minio.New(url, accessKey, secretKey, true)
+	service.client, err = minio.New(url, accessKey, secretKey, false)
 	return service, err
 }
