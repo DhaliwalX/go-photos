@@ -119,5 +119,16 @@ func NewPhotoService(url string, accessKey string, secretKey string, store Photo
 	service.logger = log.New(os.Stdout, "Photos Service", log.Llongfile)
 	var err error
 	service.client, err = minio.New(url, accessKey, secretKey, false)
+
+	if err != nil {
+		err = service.client.MakeBucket(bucketName, "us-east-2")
+		if err != nil {
+			if service.client.BucketExists(bucketName) {
+				log.Printf("Bucket %s already exists!", bucketName)
+			} else {
+				log.Printf("Unable to make bucket %s: %v", bucketName, err)
+			}
+		}
+	}
 	return service, err
 }
