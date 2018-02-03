@@ -123,7 +123,7 @@ func NewPhotoService(url string, accessKey string, secretKey string, store Photo
 	if err != nil {
 		err = service.client.MakeBucket(bucketName, "us-east-2")
 		if err != nil {
-			if service.client.BucketExists(bucketName) {
+			if r, err := service.client.BucketExists(bucketName); r && err != nil {
 				log.Printf("Bucket %s already exists!", bucketName)
 			} else {
 				log.Printf("Unable to make bucket %s: %v", bucketName, err)
