@@ -120,7 +120,7 @@ func NewPhotoService(url string, accessKey string, secretKey string, store Photo
 	var err error
 	service.client, err = minio.New(url, accessKey, secretKey, false)
 
-	if err != nil {
+	if err == nil {
 		err = service.client.MakeBucket(bucketName, "us-east-2")
 		if err != nil {
 			if r, err := service.client.BucketExists(bucketName); r && err != nil {
